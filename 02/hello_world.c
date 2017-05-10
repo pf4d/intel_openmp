@@ -3,44 +3,35 @@
 # include <stdio.h>
 # include <omp.h>
 
-static long num_steps   = 100000;
-static int  num_threads = 4;
-double step;
+static long n_stp = 100000;      // number of discretizations
+static int  n_trd = 4;           // number of threads
+double dx, pi = 0.0;             // x-interval width and pi estimate
 
 int main()
 {
-  int i; double pi = 0.0;
-  
-  // the size of the step to take :
-  step = 1.0 / (double) num_steps;
-
-  // create an array to store each processor sum :
-  double parallel_sum [num_threads];
-
-  // determine the thread step starting positions :
-  int thread_step = num_steps / num_threads;
+  omp_set_num_threads(n_trd);    // set the number of threads to use
+  dx = 1.0 / (double) n_stp;     // the size of the step to take
+  double psum [n_trd];           // an array to store each processor sum
+  int trd_idx = n_stp / n_trd;   // the thread dx starting positions
 
   #pragma omp parallel
   {
-    int i; double x, partial_pi, sum = 0.0;  // the part of pi for this thread
+    double x, sum = 0.0;  // the part of pi for this thread
 
-    // get the id number of the thread (0 -- num_threads) :
-    int thread_id = omp_get_thread_num();
+    // get the id number of the thread (0 -- n_trd) :
+    int id = omp_get_thread_num();
 
     // loop through and find the area under the curve :
-    for (i = thread_step*thread_id; i < thread_step*(thread_id + 1); i++)
+    for (int i = trd_idx*id; i < trd_idx*(id + 1); i++)
     {
-      x = (i + 0.5) * step;       // midpoint rule
-      sum += 4.0 / (1.0 + x*x);
+      x         = (i + 0.5) * dx;     // midpoint rule
+      psum[id] += 4.0 / (1.0 + x*x);  // increment the thread sum
     }
-    partial_pi              = step * sum;  // calculate this part of pi
-    parallel_sum[thread_id] = partial_pi;  // put it in the thread global array
   }
-
   // now sum each thread sum to get pi :
-  for (i = 0; i < num_threads; i++)
+  for (int i = 0; i < n_trd; i++)
   {
-    pi += parallel_sum[i];
+    pi += psum[i] * dx;
   }
   printf("pi = %f \n", pi);
 }
