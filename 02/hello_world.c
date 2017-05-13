@@ -2,36 +2,40 @@
 
 # include <stdio.h>
 # include <omp.h>
-
-static long n_stp = 100000;      // number of discretizations
-static int  n_trd = 4;           // number of threads
-double dx, pi = 0.0;             // x-interval width and pi estimate
+# include <math.h>
+# define N_TRD 2                   // number of threads
+                                   
+static long n_stp = (int) 1e9;     // number of discretizations
+double dx;                         // x-interval width
+double t0, dt;                     // timer variables
 
 int main()
 {
-  omp_set_num_threads(n_trd);    // set the number of threads to use
-  dx = 1.0 / (double) n_stp;     // the size of the step to take
-  double psum [n_trd];           // an array to store each processor sum
-  int trd_idx = n_stp / n_trd;   // the thread dx starting positions
+  int n_trd; double pi = 0.0;
 
-  #pragma omp parallel
+  omp_set_num_threads(N_TRD);      // set the number of threads to use
+  dx = 1.0 / (double) n_stp;       // the size of the step to take
+  t0 = omp_get_wtime();            // start the timer
+
+  # pragma omp parallel
   {
-    double x, sum = 0.0;  // the part of pi for this thread
+    int i, id, nthrds; double x, sum = 0.0;   // the part for this thread
 
     // get the id number of the thread (0 -- n_trd) :
-    int id = omp_get_thread_num();
+    id     = omp_get_thread_num();
+    nthrds = omp_get_num_threads();              // find actual num. of threads
+    if (id == 0) n_trd = omp_get_num_threads();  // save num. threads for later
 
-    // loop through and find the area under the curve :
-    for (int i = trd_idx*id; i < trd_idx*(id + 1); i++)
+    // round-robin loop through and find the area under the curve :
+    for (i = id; i < n_stp; i+=nthrds)
     {
-      x         = (i + 0.5) * dx;     // midpoint rule
-      psum[id] += 4.0 / (1.0 + x*x);  // increment the thread sum
+      x    = (i + 0.5) * dx;     // midpoint rule
+      sum += 4.0 / (1.0 + x*x);  // increment the thread sum
     }
+    # pragma omp critical        // could be "critical" as well
+    pi += sum * dx;              // pull dx multiplication ouside sum
   }
-  // now sum each thread sum to get pi :
-  for (int i = 0; i < n_trd; i++)
-  {
-    pi += psum[i] * dx;
-  }
-  printf("pi = %f \n", pi);
+  dt = omp_get_wtime() - t0;     // time to compute
+  printf("n_trd = %d \t pi = %.2e \t pi - pi_true = %.2e \t dt = %.2e\n", 
+          n_trd,        pi,          pi - M_PI,             dt);
 }
