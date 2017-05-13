@@ -1,4 +1,4 @@
-// compile with gcc -fopenmp hello_world.c
+// compile with gcc -fopenmp parallel_calc_pi.c
 
 # include <stdio.h>
 # include <omp.h>
@@ -26,8 +26,8 @@ int main()
     nthrds = omp_get_num_threads();              // find actual num. of threads
     if (id == 0) n_trd = omp_get_num_threads();  // save num. threads for later
 
-    // round-robin loop through and find the area under the curve :
-    for (i = id; i < n_stp; i+=nthrds)
+    # pragma omp for
+    for (i = 0; i < n_stp; i++)
     {
       x    = (i + 0.5) * dx;     // midpoint rule
       sum += 4.0 / (1.0 + x*x);  // increment the thread sum
