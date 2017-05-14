@@ -4,7 +4,7 @@
 # include <omp.h>
 # include <math.h>
 
-static long n_stp     = (int) 1e9;   // number of discretizations
+static long n_stp     = (int) 1e10;  // number of discretizations
 double t0, dt, pi, dx = 0.0;         // variables
 int i;
 
@@ -17,7 +17,7 @@ int main()
   {
     double x = 0.0;                  // the part for this thread
                                     
-    # pragma omp for reduction (+:pi)
+    # pragma omp for reduction (+:pi) schedule(guided) nowait
     for (i = 0; i < n_stp; i++)    
     {                               
       x   = (i + 0.5) * dx;          // midpoint rule
